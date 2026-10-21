@@ -1,0 +1,15 @@
+# Dependencies and build output
+node_modules/
+.next/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*-firebase-adminsdk-*.json
+firebase-adminsdk*.json
+service-account*.json
+
+# Generated local files
+*.tsbuildinfo
+.DS_Store
