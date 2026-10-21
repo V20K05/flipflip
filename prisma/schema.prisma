@@ -1,0 +1,411 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+enum PublishingStatus {
+  NONE
+  REQUESTED
+  APPROVED
+  REJECTED
+}
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+enum Visibility {
+  PRIVATE
+  UNLISTED
+  PUBLIC
+}
+enum PublicationStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+  REMOVED
+  ARCHIVED
+}
+enum QuestionType {
+  FLASHCARD
+  MULTIPLE_CHOICE
+}
+enum Difficulty {
+  HARD
+  MEDIUM
+  EASY
+}
+enum ReviewEventType {
+  RATED
+  RATING_CHANGED
+  UNDONE
+  ANSWER_CHECKED
+}
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+enum ReportTarget {
+  DECK
+  USER
+  MESSAGE
+  REVIEW
+}
+enum DeckEventType {
+  IMPRESSION
+  VIEW
+  OPEN
+  IMPORT
+}
+
+model User {
+  id               String           @id @default(cuid())
+  displayName      String
+  email            String           @unique
+  authProvider     String           @default("credentials")
+  passwordHash     String?
+  profileImageUrl  String?
+  bio              String?
+  role             Role             @default(STUDENT)
+  status           UserStatus       @default(ACTIVE)
+  publishingStatus PublishingStatus @default(NONE)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  preferences      UserPreferences?
+  decks            Deck[]
+  progress         QuestionProgress[]
+  reviewEvents     ReviewEvent[]
+  bookmarks        Bookmark[]
+  following        Follow[]         @relation("follower")
+  followers        Follow[]         @relation("followed")
+  communityReviews CommunityReview[]
+  reportsFiled     ContentReport[]  @relation("reporter")
+  notifications    Notification[]   @relation("recipient")
+  notificationsCaused Notification[] @relation("actor")
+  conversations    ConversationMember[]
+  messagesSent     Message[]
+  creatorRequests  CreatorRequest[]
+  deckImports      DeckImport[]
+}
+
+model UserPreferences {
+  userId                  String  @id
+  user                    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetExams             String[]
+  preferredLanguage       String  @default("en")
+  dailyGoalType           String?
+  dailyGoalValue          Int?
+  showOptions             Boolean @default(true)
+  notificationPreferences Json    @default("{}")
+  themePreference         String  @default("system")
+  onboardingCompleted     Boolean @default(false)
+}
+
+model Subject {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+  topics      Topic[]
+  decks       Deck[]
+}
+
+model Topic {
+  id            String  @id @default(cuid())
+  subjectId     String
+  subject       Subject @relation(fields: [subjectId], references: [id])
+  name          String
+  slug          String
+  parentTopicId String?
+  parent        Topic?  @relation("TopicTree", fields: [parentTopicId], references: [id])
+  children      Topic[] @relation("TopicTree")
+  isActive      Boolean @default(true)
+  decks         DeckTopic[]
+  @@unique([subjectId, slug])
+}
+
+model Deck {
+  id                String            @id @default(cuid())
+  ownerId           String
+  owner             User              @relation(fields: [ownerId], references: [id])
+  title             String
+  description       String?
+  subjectId         String?
+  subject           Subject?          @relation(fields: [subjectId], references: [id])
+  coverImageKey     String?
+  visibility        Visibility        @default(PRIVATE)
+  publicationStatus PublicationStatus @default(DRAFT)
+  isOfficial        Boolean           @default(false)
+  sourceDeckId      String?
+  sourceDeck        Deck?             @relation("DeckCopies", fields: [sourceDeckId], references: [id], onDelete: SetNull)
+  copies            Deck[]            @relation("DeckCopies")
+  /// Visible "Created by" attribution; false once >50% of original questions are modified.
+  showAttribution   Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  publishedAt       DateTime?
+  deletedAt         DateTime?
+
+  topics            DeckTopic[]
+  questions         Question[]
+  communityReviews  CommunityReview[]
+  analyticsEvents   DeckAnalyticsEvent[]
+  importsAsSource   DeckImport[]      @relation("importSource")
+  importsAsCopy     DeckImport[]      @relation("importCopy")
+  sharedInMessages  Message[]
+
+  @@index([ownerId])
+  @@index([visibility, publicationStatus, publishedAt])
+  @@index([subjectId])
+}
+
+model DeckTopic {
+  deckId  String
+  topicId String
+  deck    Deck  @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  topic   Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  @@id([deckId, topicId])
+}
+
+model Question {
+  id               String       @id @default(cuid())
+  deckId           String
+  deck             Deck         @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  prompt           String
+  answer           String
+  explanation      String?
+  questionType     QuestionType @default(FLASHCARD)
+  position         Int
+  /// Stable ID of the question this was copied from; powers the attribution rule.
+  sourceQuestionId String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  options          QuestionOption[]
+  assets           QuestionAsset[]
+  progress         QuestionProgress[]
+  reviewEvents     ReviewEvent[]
+  bookmarks        Bookmark[]
+
+  @@index([deckId, position])
+}
+
+model QuestionOption {
+  id          String   @id @default(cuid())
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionText  String
+  optionOrder Int
+  isCorrect   Boolean  @default(false)
+  @@unique([questionId, optionOrder])
+}
+
+model QuestionAsset {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  assetKey   String
+  assetType  String
+  altText    String?
+}
+
+model DeckImport {
+  id             String   @id @default(cuid())
+  sourceDeckId   String?
+  sourceDeck     Deck?    @relation("importSource", fields: [sourceDeckId], references: [id], onDelete: SetNull)
+  importedDeckId String
+  importedDeck   Deck     @relation("importCopy", fields: [importedDeckId], references: [id], onDelete: Cascade)
+  importerId     String
+  importer       User     @relation(fields: [importerId], references: [id])
+  importedAt     DateTime @default(now())
+  /// Internal provenance, retained even if visible attribution is removed.
+  sourceOwnerId  String?
+  @@index([sourceDeckId])
+  @@index([importerId])
+}
+
+model QuestionProgress {
+  id                 String      @id @default(cuid())
+  userId             String
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId         String
+  question           Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  difficultyCategory Difficulty?
+  /// 1-5, only when difficultyCategory = MEDIUM (enforced in SQL migration CHECK).
+  mediumStarRating   Int?
+  timesSeen          Int         @default(0)
+  timesCorrect       Int         @default(0)
+  timesIncorrect     Int         @default(0)
+  lastAnsweredAt     DateTime?
+  lastResponseTimeMs Int?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  @@unique([userId, questionId])
+  @@index([userId, difficultyCategory])
+}
+
+/// Append-only. Rating changes add new rows; nothing is rewritten.
+model ReviewEvent {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  deckId           String
+  selectedOptionId String?
+  /// null for flip-card reviews with no verified correctness.
+  answerCorrect    Boolean?
+  responseTimeMs   Int?
+  ratingBefore     Json?
+  ratingAfter      Json?
+  eventType        ReviewEventType
+  reviewedAt       DateTime        @default(now())
+  @@index([userId, reviewedAt])
+  @@index([userId, deckId])
+}
+
+model Bookmark {
+  userId     String
+  questionId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  @@id([userId, questionId])
+}
+
+model Follow {
+  followerId     String
+  followedUserId String
+  follower       User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followed       User     @relation("followed", fields: [followedUserId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  /// Self-follow prevented by a CHECK (follower_id <> followed_user_id) in the SQL migration and in the API.
+  @@id([followerId, followedUserId])
+}
+
+model CommunityReview {
+  id         String   @id @default(cuid())
+  deckId     String
+  deck       Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating     Int
+  reviewText String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@unique([deckId, userId])
+}
+
+model ContentReport {
+  id         String       @id @default(cuid())
+  reporterId String
+  reporter   User         @relation("reporter", fields: [reporterId], references: [id])
+  targetType ReportTarget
+  targetId   String
+  reason     String
+  details    String?
+  status     ReportStatus @default(OPEN)
+  reviewedBy String?
+  reviewedAt DateTime?
+  resolutionNote String?
+  createdAt  DateTime     @default(now())
+  @@index([status, createdAt])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  recipientId String
+  recipient  User      @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?     @relation("actor", fields: [actorId], references: [id], onDelete: SetNull)
+  type       String
+  entityType String?
+  entityId   String?
+  message    String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  @@index([recipientId, readAt, createdAt])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members   ConversationMember[]
+  messages  Message[]
+}
+
+model ConversationMember {
+  conversationId String
+  userId         String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  messageText    String?
+  sharedDeckId   String?
+  sharedDeck     Deck?        @relation(fields: [sharedDeckId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+  @@index([conversationId, createdAt])
+}
+
+model CreatorRequest {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      RequestStatus @default(PENDING)
+  requestedAt DateTime      @default(now())
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNotes String?
+}
+
+model DeckAnalyticsEvent {
+  id         String        @id @default(cuid())
+  deckId     String
+  deck       Deck          @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  userId     String?
+  eventType  DeckEventType
+  occurredAt DateTime      @default(now())
+  sessionId  String?
+  @@index([deckId, eventType, occurredAt])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  @@index([createdAt])
+}
