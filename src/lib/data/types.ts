@@ -20,6 +20,7 @@ export interface DeckSummary {
   description: string | null;
   subject: string | null;
   isOfficial: boolean;
+  color: string;
   total: number;
   rated: number;
 }
