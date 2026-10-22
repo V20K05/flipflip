@@ -12,7 +12,7 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
   return (
     <>
       <p><Link href="/decks">← All decks</Link></p>
-      <h1>{deck.title}</h1>
+      <div className="row between deck-title-row"><div className="row"><span className={`folder-icon folder-${deck.color}`} aria-hidden="true" /><h1>{deck.title}</h1></div>{!deck.isOfficial && <Link className="btn" href={`/decks/${deck.id}/edit`}>Edit deck</Link>}</div>
       <p className="muted">{deck.description}</p>
       <div className="card">
         <p><strong>{deck.total}</strong> questions · <strong>{deck.rated}</strong> rated by you</p>
