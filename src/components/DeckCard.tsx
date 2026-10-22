@@ -6,7 +6,7 @@ export function DeckCard({ deck }: { deck: DeckSummary }) {
   return (
     <Link href={`/decks/${deck.id}`} className="card deck-card">
       <div className="row between">
-        <span className="tag">{deck.subject ?? "General"}</span>
+        <span className="row deck-subject"><span className={`folder-icon folder-${deck.color}`} aria-hidden="true" /><span className="tag">{deck.subject ?? "General"}</span></span>
         {deck.isOfficial && <span className="tag official">Official</span>}
       </div>
       <h3>{deck.title}</h3>
