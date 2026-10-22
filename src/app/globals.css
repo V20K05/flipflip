@@ -48,6 +48,9 @@ fieldset { border: 0; padding: 0; margin: 1rem 0; } legend { font-weight: 700; m
 .deck-builder { max-width: 760px; }
 .builder-details, .builder-card { display: grid; gap: 1rem; }
 .builder-card h2 { margin: 0; }
+.builder-card { cursor: grab; }
+.builder-card:active { cursor: grabbing; }
+.builder-card.is-dragging { opacity: .55; }
 .builder-card .row { margin-bottom: .1rem; }
 .choice-builder { display: grid; gap: .6rem; margin: 0; }
 .choice-builder legend { margin-bottom: .1rem; }
@@ -58,6 +61,12 @@ fieldset { border: 0; padding: 0; margin: 1rem 0; } legend { font-weight: 700; m
 .add-card { margin: .2rem 0 1rem; }
 .builder-submit { margin: .5rem 0 2rem; }
 .tag { display: inline-block; background: var(--brand-soft); color: var(--brand); border-radius: 999px; padding: .1rem .6rem; font-size: .75rem; font-weight: 700; margin: 0; } .tag.official { background: #e3f6ec; color: var(--easy); }
+.deck-subject { gap: .4rem; }
+.folder-icon { position: relative; display: inline-block; flex: 0 0 auto; width: 1.65rem; height: 1.12rem; margin-top: .2rem; border-radius: 3px 4px 4px 4px; background: #4996e8; }
+.folder-icon::before { content: ""; position: absolute; left: 1px; top: -.22rem; width: .65rem; height: .28rem; border-radius: 3px 3px 0 0; background: inherit; }
+.folder-red { background: #e45555; } .folder-orange { background: #ee8b32; } .folder-yellow { background: #e7bd27; } .folder-green { background: #38a66a; } .folder-purple { background: #8c65ca; } .folder-pink { background: #df66a1; }
+.deck-title-row { margin: .5rem 0; } .deck-title-row h1 { margin: 0; }
+.card-order-tools { gap: .8rem; } .card-order-tools .link-btn { font-size: 1.1rem; font-weight: 700; }
 .progress { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin: .75rem 0 .4rem; } .progress div { height: 100%; background: var(--accent); }
 .levels { display: flex; gap: 1rem; flex-wrap: wrap; } .level { padding: .6rem 1rem; border-radius: 10px; background: var(--bg); } .level strong { font-size: 1.3rem; margin-right: .3rem; }
 .level.hard strong { color: var(--hard); } .level.medium strong { color: var(--medium); } .level.easy strong { color: var(--easy); }
