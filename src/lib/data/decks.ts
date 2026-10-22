@@ -58,6 +58,7 @@ export async function listDecks(db: Firestore, userId: string, progressQuery?: P
       description: data.description ?? null,
       subject: typeof data.subjectId === "string" ? subjectNameById.get(data.subjectId) ?? null : null,
       isOfficial: !!data.isOfficial,
+      color: typeof data.color === "string" ? data.color : "blue",
       total: questionCountByDeck.get(doc.id) ?? 0,
       rated: ratedCountByDeck.get(doc.id) ?? 0,
     };
@@ -78,9 +79,33 @@ export async function getDeckSummary(db: Firestore, userId: string, deckId: stri
     description: data.description ?? null,
     subject: subject?.get("name") ?? null,
     isOfficial: !!data.isOfficial,
+    color: typeof data.color === "string" ? data.color : "blue",
     total: questions.size,
     rated: progress.filter((p) => p.get("difficultyCategory")).length,
   } satisfies DeckSummary;
+}
+export async function getDeckEditorData(db: Firestore, userId: string, deckId: string) {
+  const deck = await db.collection("decks").doc(deckId).get();
+  if (!deck.exists || deck.get("ownerId") !== userId || deck.get("isOfficial")) return null;
+  const questions = await db.collection("questions").where("deckId", "==", deckId).get();
+  const mcqIds = questions.docs.filter((q) => q.get("questionType") === "MULTIPLE_CHOICE").map((q) => q.id);
+  const optionBatches = await Promise.all(chunks(mcqIds, 30).map((ids) => db.collection("questionOptions").where("questionId", "in", ids).get()));
+  const options = new Map<string, Array<{ text: string; isCorrect: boolean; order: number }>>();
+  for (const option of optionBatches.flatMap((batch) => batch.docs)) {
+    const questionId = option.get("questionId");
+    const list = options.get(questionId) ?? [];
+    list.push({ text: option.get("optionText"), isCorrect: !!option.get("isCorrect"), order: option.get("optionOrder") ?? 0 });
+    options.set(questionId, list);
+  }
+  return {
+    title: deck.get("title") as string,
+    description: (deck.get("description") ?? "") as string,
+    color: typeof deck.get("color") === "string" ? deck.get("color") as string : "blue",
+    cards: questions.docs.sort((a, b) => (a.get("position") ?? 0) - (b.get("position") ?? 0)).map((q) => {
+      const qOptions = (options.get(q.id) ?? []).sort((a, b) => a.order - b.order);
+      return { id: q.id, prompt: q.get("prompt") as string, answer: q.get("answer") as string, explanation: (q.get("explanation") ?? "") as string, type: q.get("questionType") as "FLASHCARD" | "MULTIPLE_CHOICE", options: qOptions.map((o) => o.text), correctIndex: qOptions.findIndex((o) => o.isCorrect) };
+    }),
+  };
 }
 export async function canAccessQuestion(db: Firestore, userId: string, deckId: string, questionId: string) {
   const [deck, question] = await Promise.all([db.collection("decks").doc(deckId).get(), db.collection("questions").doc(questionId).get()]);
