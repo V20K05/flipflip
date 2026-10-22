@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { recordRating, recordUndo } from "@/app/actions/practice";
 import type { PracticeQuestion } from "@/lib/data/types";
 import {
@@ -138,6 +139,12 @@ export function Practice({ deckId, deckTitle, questions, ratings, initialQueue }
 
       <div className="practice-stage">
       <div className={`question-stack${isMc ? " has-options" : ""}`} key={`${current.id}-${state.reviewedCount}`}>
+      {revealed && answerCorrect && (
+        <div className="answer-celebration" aria-live="polite" aria-label="Correct answer">
+          <span className="graffiti-word" aria-hidden="true">NICE!</span>
+          {Array.from({ length: 18 }, (_, i) => <span key={i} className="confetti-bit" style={{ "--hue": i * 31, "--x": `${(i - 8) * 16}px`, "--y": `${-55 - (i % 5) * 18}px`, "--rotation": `${i * 42}deg` } as CSSProperties} aria-hidden="true" />)}
+        </div>
+      )}
       <div className={`card question${revealed ? " revealed" : ""}`}>
         <div className="question-top">
           <p className="tag">{deckTitle}</p>

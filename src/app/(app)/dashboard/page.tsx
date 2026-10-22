@@ -8,7 +8,8 @@ import { DeckCard } from "@/components/DeckCard";
 export default async function DashboardPage() {
   const user = await requireUser();
   const db = getDb();
-  const [stats, decks] = await Promise.all([getDashboardStats(db, user.id), listDecks(db, user.id)]);
+  const progress = db.collection("questionProgress").where("userId", "==", user.id).get();
+  const [stats, decks] = await Promise.all([getDashboardStats(db, user.id, progress), listDecks(db, user.id, progress)]);
   const first = user.displayName.split(" ")[0];
   const nothingYet = stats.totalReviews === 0;
 

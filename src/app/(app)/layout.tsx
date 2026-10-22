@@ -11,6 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <nav>
           <Link href="/dashboard">Dashboard</Link>
           <Link href="/decks">Decks</Link>
+          <Link href="/decks/new">Create deck</Link>
         </nav>
         <div className="sidebar-foot">
           <p className="muted small">{user.displayName}</p>
